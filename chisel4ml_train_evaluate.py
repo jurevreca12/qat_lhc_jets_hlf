@@ -1,8 +1,10 @@
 import os
+import random
+
 import tensorflow as tf
 import numpy as np
 import qkeras
-
+from tensorflow.keras import backend as K
 from tensorflow.keras.datasets import mnist
 from qkeras.utils import print_model_sparsity
 
@@ -19,11 +21,19 @@ from tensorflow_model_optimization.python.core.sparsity.keras import pruning_sch
 from tensorflow_model_optimization.sparsity.keras import strip_pruning
 
 def main():
+    # Setting the random seeds for reproducibility
+    # see: https://keras.io/getting_started/faq/#how-can-i-obtain-reproducible-results-using-keras-during-development
+    os.environ['PYTHONHASHSEED'] = '0'
+    os.environ['CUDA_VISIBLE_DEVICES'] = ""
+    np.random.seed(42)
+    random.seed(42)
+    tf.random.set_seed(42)
+
     X_train_val = np.load('X_train_val.npy')
     X_test = np.load('X_test.npy')
     y_train_val = np.load('y_train_val.npy')
     y_test = np.load('y_test.npy')
-    classes = np.load('classes.npy', allow_pickle=True)
+    #classes = np.load('classes.npy', allow_pickle=True)
     
     # We rescale the inputs so that we can quantize them as signed integers.
     X_train_val = X_train_val * (2**6)

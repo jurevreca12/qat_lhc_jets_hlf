@@ -9,4 +9,5 @@ chisel4ml/results.txt chisel4ml/ProcessingPipeline.sv: X_train_val.npy y_train_v
 
 .PHONY: clean
 clean:
-	rm X_train_val.npy y_train_val.npy X_test.npy y_test.npy classes.npy chisel4ml/results.txt chisel4ml/ProcessingPipeline.sv
+	rm -f X_train_val.npy y_train_val.npy X_test.npy y_test.npy classes.npy 
+	rm -f chisel4ml/results.txt chisel4ml/ProcessingPipeline.sv

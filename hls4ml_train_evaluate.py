@@ -21,26 +21,23 @@ from tensorflow_model_optimization.python.core.sparsity.keras import pruning_sch
 from tensorflow_model_optimization.sparsity.keras import strip_pruning
 
 def train_model(X_train_val, y_train_val):
-    alpha = 'auto_po2'
     model = Sequential()
-    model.add(tf.keras.layers.Input(shape=(16,)))
-    model.add(qkeras.QActivation(qkeras.quantized_bits(bits=11, integer=10, keep_negative=True, alpha=1)))
     model.add(QDense(64, input_shape=(16,), name='fc1',
-                     kernel_quantizer=quantized_bits(6,5,alpha=alpha, keep_negative=True), use_bias=False, 
+                     kernel_quantizer=quantized_bits(6,0,alpha=1), use_bias=False,
                      kernel_initializer='lecun_uniform', kernel_regularizer=l1(0.0001)))
-    model.add(QActivation(activation=quantized_relu(5,5), name='relu1'))
+    model.add(QActivation(activation=quantized_relu(6), name='relu1'))
     model.add(QDense(32, name='fc2',
-                     kernel_quantizer=quantized_bits(6,5,alpha=alpha, keep_negative=True), use_bias=False,
+                     kernel_quantizer=quantized_bits(6,0,alpha=1), use_bias=False,
                      kernel_initializer='lecun_uniform', kernel_regularizer=l1(0.0001)))
-    model.add(QActivation(activation=quantized_relu(5,5), name='relu2'))
+    model.add(QActivation(activation=quantized_relu(6), name='relu2'))
     model.add(QDense(32, name='fc3',
-                     kernel_quantizer=quantized_bits(6,5,alpha=alpha, keep_negative=True), use_bias=False,
+                     kernel_quantizer=quantized_bits(6,0,alpha=1), use_bias=False,
                      kernel_initializer='lecun_uniform', kernel_regularizer=l1(0.0001)))
-    model.add(QActivation(activation=quantized_relu(5,5), name='relu3'))
+    model.add(QActivation(activation=quantized_relu(6), name='relu3'))
     model.add(QDense(5, name='output',
-                     kernel_quantizer=quantized_bits(6,5,alpha=alpha, keep_negative=True), use_bias=False,
-                     kernel_initializer='lecun_uniform', kernel_regularizer=l1(0.0001)))  #, activation='softmax'))
-    model.add(Activation(activation=tf.keras.activations.softmax, name='softmax'))
+                     kernel_quantizer=quantized_bits(6,0,alpha=1), use_bias=False,
+                     kernel_initializer='lecun_uniform', kernel_regularizer=l1(0.0001)))
+    model.add(Activation(activation='softmax', name='softmax'))
 
     pruning_params = {"pruning_schedule" : pruning_schedule.ConstantSparsity(0.75, begin_step=2000, frequency=100)}
     model = prune.prune_low_magnitude(model, **pruning_params)
@@ -70,49 +67,36 @@ def main():
     y_train_val = np.load('y_train_val.npy')
     y_test = np.load('y_test.npy')
     # classes = np.load('classes.npy', allow_pickle=True)
-    
-    # We rescale the inputs so that we can quantize them as signed integers.
-    X_train_val = X_train_val * (2**6)
-    X_test = X_test * (2**6)
-    X_train_val = np.round(X_train_val)
-    X_test = np.round(X_test)
-    
+     
     model = train_model(X_train_val, y_train_val)
 
-    
     print("-----------------EVALUATING-----------------")
     loss, acc = model.evaluate(X_test, y_test, verbose=False)
     print(f"Software model accuracy is: {acc}")
     print("--------------------------------------------")
-    
-    
-    print("-----------------GENERATING VERILOG WITH CHISEL4ML-----------------")
-    from chisel4ml import optimize, generate
-    opt_model = optimize.qkeras_model(model)
-    circuit = generate.circuit(opt_model, is_simple=True, use_verilator=True)
-    file_path = os.path.realpath(__file__)                                                                                  
-    dir_path = os.path.dirname(file_path)  
-    circuit.package(directory=os.path.join(dir_path, 'chisel4ml'), name='ProcessingPipelineSimple')
-    print("-------------------------------------------------------------------")
-    
-    print("-----------------EVALUATING CHISEL4ML CIRCUIT VIA SIMULATION-----------------")
-    correct = 0
-    wrong = 0
-    cnt = 0
-    for sample, res in zip(X_test, y_test):
-        if cnt % 1000 == 0:
-            print(f"Finnished batch {cnt/1000}. So far we have {correct} correct vals and {wrong} wrong values.")
-        cnt=cnt+1
-        cres = circuit(sample)
-        if np.argmax(res) == np.argmax(cres):
-            correct = correct + 1
-        else:
-            wrong = wrong + 1
-    print(f"The circuit model has an accuracy of: {correct/(correct+wrong)}. That is {correct} values and {wrong} wrong values.")
-    
-    with open(os.path.join(dir_path, 'chisel4ml', 'results.txt'), 'w') as f:
-        f.write(f"QKeras acc:{acc}\n"
-                f"chisel4ml acc: {correct/(correct+wrong)}")
-    
+     
+
+    print("-----------------GENERATING HLS4ML HARDWARE-----------------")
+    import hls4ml
+    hls4ml.model.optimizer.OutputRoundingSaturationMode.layers = ['Activation']
+    hls4ml.model.optimizer.OutputRoundingSaturationMode.rounding_mode = 'AP_RND'
+    hls4ml.model.optimizer.OutputRoundingSaturationMode.saturation_mode = 'AP_SAT'
+    config = hls4ml.utils.config_from_keras_model(model, granularity='name')
+    config['Model']['ReuseFactor'] = 1 # no reuse
+    config['LayerName']['softmax']['exp_table_t'] = 'ap_fixed<18,8>'
+    config['LayerName']['softmax']['inv_table_t'] = 'ap_fixed<18,4>'
+    hls_model = hls4ml.converters.convert_from_keras_model(model,
+                                                           hls_config=config,
+                                                           output_dir='hls4ml',
+                                                           part='xcvu9p-flga2104-2L-e')
+    hls_model.compile()
+
+    print("------------------EVALUATING HLS4ML HARDWARE-------------------------")
+    y_hls = hls_model.predict(np.ascontiguousarray(X_test))
+    from sklearn.metrics import accuracy_score 
+    print("Accuracy hls4ml: {}".format(accuracy_score(np.argmax(y_test, axis=1), np.argmax(y_hls, axis=1))))
+    hls_model.build(csim=False)
+    hls4ml.report.read_vivado_report('hls4ml')
+
 if __name__ == '__main__':
     main()

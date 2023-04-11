@@ -23,15 +23,15 @@ from tensorflow_model_optimization.sparsity.keras import strip_pruning
 def train_model(X_train_val, y_train_val):
     model = Sequential()
     model.add(QDense(64, input_shape=(16,), name='fc1',
-                     kernel_quantizer=quantized_bits(6,0,alpha=1), use_bias=False,
+                     kernel_quantizer=quantized_bits(6,0,alpha='auto_po2'), use_bias=False,
                      kernel_initializer='lecun_uniform', kernel_regularizer=l1(0.0001)))
     model.add(QActivation(activation=quantized_relu(6), name='relu1'))
     model.add(QDense(32, name='fc2',
-                     kernel_quantizer=quantized_bits(6,0,alpha=1), use_bias=False,
+                     kernel_quantizer=quantized_bits(6,0,alpha='auto_po2'), use_bias=False,
                      kernel_initializer='lecun_uniform', kernel_regularizer=l1(0.0001)))
     model.add(QActivation(activation=quantized_relu(6), name='relu2'))
     model.add(QDense(32, name='fc3',
-                     kernel_quantizer=quantized_bits(6,0,alpha=1), use_bias=False,
+                     kernel_quantizer=quantized_bits(6,0,alpha='auto_po2'), use_bias=False,
                      kernel_initializer='lecun_uniform', kernel_regularizer=l1(0.0001)))
     model.add(QActivation(activation=quantized_relu(6), name='relu3'))
     model.add(QDense(5, name='output',

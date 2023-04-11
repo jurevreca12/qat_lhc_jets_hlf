@@ -89,7 +89,7 @@ def main():
     print("-----------------GENERATING VERILOG WITH CHISEL4ML-----------------")
     from chisel4ml import optimize, generate
     opt_model = optimize.qkeras_model(model)
-    circuit = generate.circuit(opt_model, is_simple=True, use_verilator=True)
+    circuit = generate.circuit(opt_model, is_simple=True, pipeline=True, use_verilator=True)
     file_path = os.path.realpath(__file__)                                                                                  
     dir_path = os.path.dirname(file_path)  
     circuit.package(directory=os.path.join(dir_path, 'chisel4ml'), name='ProcessingPipelineSimple')

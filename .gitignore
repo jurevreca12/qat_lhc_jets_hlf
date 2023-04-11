@@ -1,2 +1,6 @@
 *.npy
 venv/
+hls4ml/
+hls4ml.tar.gz
+vivado.log
+vivado.jou

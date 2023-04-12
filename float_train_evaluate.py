@@ -10,11 +10,6 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l1
 from tensorflow.keras.layers import Activation, Dense
 
-from tensorflow_model_optimization.python.core.sparsity.keras import prune
-from tensorflow_model_optimization.python.core.sparsity.keras import pruning_callbacks
-from tensorflow_model_optimization.python.core.sparsity.keras import pruning_schedule
-from tensorflow_model_optimization.sparsity.keras import strip_pruning
-
 def train_model(X_train_val, y_train_val):
     model = Sequential()
     model.add(Dense(64, input_shape=(16,), name='fc1', use_bias=False,
@@ -29,15 +24,11 @@ def train_model(X_train_val, y_train_val):
     model.add(Dense(5, name='output', use_bias=False,
                      kernel_initializer='lecun_uniform', kernel_regularizer=l1(0.0001)))
     model.add(Activation(activation='softmax', name='softmax'))
-
-    pruning_params = {"pruning_schedule" : pruning_schedule.ConstantSparsity(0.75, begin_step=2000, frequency=100)}
-    model = prune.prune_low_magnitude(model, **pruning_params)
-    
+ 
     adam = Adam(lr=0.0001)
     model.compile(optimizer=adam, loss=['categorical_crossentropy'], metrics=['accuracy'])
     model.fit(X_train_val, y_train_val, batch_size=1024,
-              epochs=30, validation_split=0.25, shuffle=True,
-              callbacks = [pruning_callbacks.UpdatePruningStep()])
+              epochs=30, validation_split=0.25, shuffle=True)
     
     model = strip_pruning(model)
     model.compile(optimizer=adam, loss=['categorical_crossentropy'], metrics=['accuracy'])

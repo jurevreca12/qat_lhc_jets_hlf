@@ -68,6 +68,8 @@ def main():
     y_test = np.load('y_test.npy')
     # classes = np.load('classes.npy', allow_pickle=True)
      
+    file_path = os.path.realpath(__file__)
+    dir_path = os.path.dirname(file_path)
 
     for bits in [2, 3, 4, 5, 6, 7, 8]:
         model = train_model(X_train_val, y_train_val, bits=bits)
@@ -76,27 +78,34 @@ def main():
         print(f"Software model accuracy is: {acc}")
         print("---------------------------------------------------------")
 
-        for reuse in [1, 2, 4]:
-            print("-----------------GENERATING HLS4ML HARDWARE-----------------")
-            hls4ml.model.optimizer.OutputRoundingSaturationMode.layers = ['Activation']
-            hls4ml.model.optimizer.OutputRoundingSaturationMode.rounding_mode = 'AP_RND'
-            hls4ml.model.optimizer.OutputRoundingSaturationMode.saturation_mode = 'AP_SAT'
-            config = hls4ml.utils.config_from_keras_model(model, granularity='name')
-            config['Model']['ReuseFactor'] = reuse
-            config['LayerName']['softmax']['exp_table_t'] = 'ap_fixed<18,8>'
-            config['LayerName']['softmax']['inv_table_t'] = 'ap_fixed<18,4>'
-            hls_model = hls4ml.converters.convert_from_keras_model(model,
-                                                                   hls_config=config,
-                                                                   output_dir=f'hls4ml_reuse{reuse}_bits{bits}',
-                                                                   part='xcvu9p-flga2104-2L-e')
-            hls_model.compile()
+        print("-----------------GENERATING HLS4ML HARDWARE-----------------")
+        hls4ml.model.optimizer.OutputRoundingSaturationMode.layers = ['Activation']
+        hls4ml.model.optimizer.OutputRoundingSaturationMode.rounding_mode = 'AP_RND'
+        hls4ml.model.optimizer.OutputRoundingSaturationMode.saturation_mode = 'AP_SAT'
+        config = hls4ml.utils.config_from_keras_model(model, 
+                                                      granularity='name', 
+                                                      default_reuse_factor=1,
+                                                      default_precision='ap_fixed<11,6>')
+        config['Model']['ReuseFactor'] = 1
+        config['LayerName']['softmax']['exp_table_t'] = 'ap_fixed<18,8>'
+        config['LayerName']['softmax']['inv_table_t'] = 'ap_fixed<18,4>'
+        hls_model = hls4ml.converters.convert_from_keras_model(model,
+                                                               hls_config=config,
+                                                               output_dir=f'hls4ml_bits{bits}',
+                                                               part='xcvu9p-flga2104-2L-e')
+        hls_model.compile()
 
-            print("------------------EVALUATING HLS4ML HARDWARE-------------------------")
-            y_hls = hls_model.predict(np.ascontiguousarray(X_test))
-            from sklearn.metrics import accuracy_score 
-            print("Accuracy hls4ml: {}".format(accuracy_score(np.argmax(y_test, axis=1), np.argmax(y_hls, axis=1))))
-            hls_model.build(csim=False)
-            hls4ml.report.read_vivado_report('hls4ml')
+        print("------------------EVALUATING HLS4ML HARDWARE-------------------------")
+        y_hls = hls_model.predict(np.ascontiguousarray(X_test))
+        from sklearn.metrics import accuracy_score 
+        hls_acc = accuracy_score(np.argmax(y_test, axis=1), np.argmax(y_hls, axis=1))
+        print("Accuracy hls4ml: {}".format(hls_acc))
+        with open(os.path.join(dir_path, f'hls4ml_bits{bits}', 'results.txt'), 'w') as f:
+            f.write(f"Qkeras acc:{acc}\n"
+                    f"hls4ml acc:{hls_acc}")
+
+        hls_model.build(csim=False, vsynth=True)
+        hls4ml.report.read_vivado_report('hls4ml')
 
 if __name__ == '__main__':
     main()

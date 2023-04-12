@@ -1,6 +1,7 @@
 *.npy
 venv/
-hls4ml/
-hls4ml.tar.gz
+hls4ml_*/
+hls4ml*.tar.gz
+float/
 vivado.log
 vivado.jou

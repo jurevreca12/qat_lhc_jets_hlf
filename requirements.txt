@@ -3,7 +3,7 @@ astunparse==1.6.3
 cachetools==5.3.0
 certifi==2022.12.7
 charset-normalizer==3.1.0
--e git+https://github.com/cs-jsi/chisel4ml.git@008d04521b1e797e1b624e401d0bed742824020d#egg=chisel4ml
+-e git+https://github.com/cs-jsi/chisel4ml.git@9b17902631673b17983ce93a3e8b07c29f0406b7#egg=chisel4ml
 dm-tree==0.1.8
 flatbuffers==23.3.3
 gast==0.4.0
@@ -26,7 +26,7 @@ ml-dtypes==0.0.4
 networkx==3.0
 numpy==1.23.5
 oauthlib==3.2.2
-onnx==1.13.1
+onnx==1.12.0
 opt-einsum==3.3.0
 packaging==23.0
 pandas==2.0.0
@@ -50,7 +50,7 @@ tensorboard==2.11.2
 tensorboard-data-server==0.6.1
 tensorboard-plugin-wit==1.8.1
 tensorflow==2.11.1
-tensorflow-cpu==2.12.0
+tensorflow-cpu==2.11.1
 tensorflow-estimator==2.11.0
 tensorflow-io-gcs-filesystem==0.32.0
 tensorflow-model-optimization==0.7.4

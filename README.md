@@ -14,7 +14,8 @@ For debian systems:
 Next its best to create a python enviroment:
 	`python -m venv venv/`
 
-and then install the requirements.
+and then install the requirements. This should work smoothly if you have Python 3.10.6
+	`pip install --upgrade pip`
 	`pip install -r requirements.txt`
 
 

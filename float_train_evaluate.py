@@ -30,7 +30,6 @@ def train_model(X_train_val, y_train_val):
     model.fit(X_train_val, y_train_val, batch_size=1024,
               epochs=30, validation_split=0.25, shuffle=True)
     
-    model = strip_pruning(model)
     model.compile(optimizer=adam, loss=['categorical_crossentropy'], metrics=['accuracy'])
     return model
 
@@ -59,7 +58,10 @@ def main():
     loss, acc = model.evaluate(X_test, y_test, verbose=False)
     print(f"Software model accuracy is: {acc}")
     print("--------------------------------------------")
-    
+ 
+    if not os.path.exists(os.path.join(dir_path, 'float')):
+        os.makedirs(os.path.join(dir_path, 'float'))
+
     with open(os.path.join(dir_path, 'float', 'results.txt'), 'w') as f:                                                                                                                 
         f.write(f"Float acc:{acc}")
 

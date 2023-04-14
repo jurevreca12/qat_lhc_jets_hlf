@@ -1,5 +1,7 @@
 import os
+import sys
 import random
+import time
 
 import tensorflow as tf
 import numpy as np
@@ -56,7 +58,7 @@ def train_model(X_train_val, y_train_val, bits):
     return model
 
 
-def main():
+def main(bits=None):
     # Setting the random seeds for reproducibility
     # see: https://keras.io/getting_started/faq/#how-can-i-obtain-reproducible-results-using-keras-during-development
     os.environ['PYTHONHASHSEED'] = '0'
@@ -77,42 +79,44 @@ def main():
     X_train_val = np.round(X_train_val)
     X_test = np.round(X_test)
 
-
-    for bits in range(2, 9): 
-        model = train_model(X_train_val, y_train_val, bits=bits) 
-        print(f"-----------------EVALUATING MODEL: {bits} bits-----------------")
-        loss, acc = model.evaluate(X_test, y_test, verbose=False)
-        print(f"Software model accuracy is: {acc}")
-        print("--------------------------------------------")
-        
-        
-        print("-----------------GENERATING VERILOG WITH CHISEL4ML-----------------")
-        from chisel4ml import optimize, generate
-        opt_model = optimize.qkeras_model(model)
-        circuit = generate.circuit(opt_model, is_simple=True, pipeline=True, use_verilator=True)
-        file_path = os.path.realpath(__file__)                                                                                  
-        dir_path = os.path.dirname(file_path)  
-        circuit.package(directory=os.path.join(dir_path, f'chisel4ml_bits{bits}'), name='ProcessingPipelineSimple')
-        print("-------------------------------------------------------------------")
-        
-        print("-----------------EVALUATING CHISEL4ML CIRCUIT VIA SIMULATION-----------------")
-        correct = 0
-        wrong = 0
-        cnt = 0
-        for sample, res in zip(X_test, y_test):
-            if cnt % 1000 == 0:
-                print(f"Finnished batch {cnt/1000}. So far we have {correct} correct vals and {wrong} wrong values.")
-            cnt=cnt+1
-            cres = circuit(sample)
-            if np.argmax(res) == np.argmax(cres):
-                correct = correct + 1
-            else:
-                wrong = wrong + 1
-        print(f"The circuit model has an accuracy of: {correct/(correct+wrong)}. That is {correct} values and {wrong} wrong values.")
-        
-        with open(os.path.join(dir_path, f'chisel4ml_bits{bits}', 'results.txt'), 'w') as f:
-            f.write(f"QKeras acc:{acc}\n"
-                    f"chisel4ml acc: {correct/(correct+wrong)}")
+    model = train_model(X_train_val, y_train_val, bits=bits) 
+    print(f"-----------------EVALUATING MODEL: {bits} bits-----------------")
+    loss, acc = model.evaluate(X_test, y_test, verbose=False)
+    print(f"Software model accuracy is: {acc}")
+    print("--------------------------------------------")
+    
+    
+    print("-----------------GENERATING VERILOG WITH CHISEL4ML-----------------")
+    from chisel4ml import optimize, generate
+    stime = time.time()
+    opt_model = optimize.qkeras_model(model)
+    circuit = generate.circuit(opt_model, is_simple=True, pipeline=True, use_verilator=True)
+    etime = time.time()
+    file_path = os.path.realpath(__file__)                                                                                  
+    dir_path = os.path.dirname(file_path)  
+    circuit.package(directory=os.path.join(dir_path, f'chisel4ml_bits{bits}'), name='ProcessingPipelineSimple')
+    print("-------------------------------------------------------------------")
+    
+    print("-----------------EVALUATING CHISEL4ML CIRCUIT VIA SIMULATION-----------------")
+    correct = 0
+    wrong = 0
+    cnt = 0
+    for sample, res in zip(X_test, y_test):
+        if cnt % 1000 == 0:
+            print(f"Finnished batch {cnt/1000}. So far we have {correct} correct vals and {wrong} wrong values.")
+        cnt=cnt+1
+        cres = circuit(sample)
+        if np.argmax(res) == np.argmax(cres):
+            correct = correct + 1
+        else:
+            wrong = wrong + 1
+    print(f"The circuit model has an accuracy of: {correct/(correct+wrong)}. That is {correct} values and {wrong} wrong values.")
+    
+    with open(os.path.join(dir_path, f'chisel4ml_bits{bits}', 'results.txt'), 'w') as f:
+        f.write(f"QKeras acc:{acc}\n"
+                f"chisel4ml acc: {correct/(correct+wrong)}\n"
+                f"generate time: {etime-stime} seconds)")
     
 if __name__ == '__main__':
-    main()
+    assert len(sys.argv) == 2
+    main(bits=int(sys.argv[1]))

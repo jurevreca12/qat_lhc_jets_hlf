@@ -3,5 +3,7 @@ venv/
 hls4ml_*/
 hls4ml*.tar.gz
 float/
-vivado.log
-vivado.jou
+vivado*.log
+vivado*.jou
+.mypy_cache/
+chisel4ml_bits*/
